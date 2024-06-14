@@ -1,4 +1,8 @@
+use tar::Archive;
 use std::fs::read;
+use std::io::Cursor;
+use std::io::prelude::*;
+use flate2::read::GzDecoder;
 use oci_distribution::{
     client::ClientConfig, secrets::RegistryAuth, Client, Reference
 };
@@ -8,6 +12,27 @@ pub const IMAGE_REFERENCE: &str = "localhost:5000/wamli-ml-01:latest";
 // This is not set explicitly in the build script.
 // It seems to be derviced by the server.
 pub const MEDIA_TYPE: &str = "application/vnd.oci.image.layer.v1.tar+gzip";
+
+pub async fn uncompress_image_layer(data: Vec<u8>) -> Vec<u8> {
+    let mut decompressed_data = Vec::new();
+    let mut gz_decoder = GzDecoder::new(&data[..]);
+    gz_decoder.read_to_end(&mut decompressed_data).unwrap();
+    return decompressed_data;
+}
+
+pub async fn untar_archive(data: Vec<u8>) {
+    let mut archive = Archive::new(Cursor::new(data));
+    let entries = archive.entries().unwrap(); // Unwrap the Result<Entries, Error>
+
+    for entry in entries {
+        let mut file = entry.unwrap(); // Unwrap the Result<Entry, Error>
+
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        println!("File contents: {}", contents);
+        break;
+    }
+}
 
 pub async fn read_first_image_layer(image_ref: &str, content_type: &str) -> Vec<u8> {
     // Experimenting with an ordinary local docker registry,
