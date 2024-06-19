@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # This script is supposed to create an OCI container based on buildah.
-# It expects one argument which shall be a file to be put into the container.
+# It expects one argument, the file to be put into the container, e.g.
+# content.txt
 
 EXEC_PATH=`dirname "$0"`
 EXEC_PATH=`( cd "$EXEC_PATH" && pwd )`
@@ -22,45 +23,53 @@ else
     exit 1
 fi
 
-echo -e "\nCreating new image with file $FILE_FOR_CONTAINER .."
+echo -e -n "\nCreating new image with file $FILE_FOR_CONTAINER .."
 
-### does not work from script, something about processes ..?
+### does not work from script, something about process context..?
 
-# newcontainer=$(buildah from scratch)
+newcontainer=$(buildah from scratch)
 
-# echo " .. created"
+echo " created"
 
-# export newcontainer
-# buildah unshare
-# scratchmnt=$(buildah mount $newcontainer)
+export newcontainer
 
-# echo " .. available"
+echo -e "Name of new image: $newcontainer"
 
-# echo -e "\t$scratchmnt"
-# echo
-# echo "copying file into container .."
-# buildah copy $newcontainer $FILE_FOR_CONTAINER /
-# buildah commit $newcontainer newimage
+buildah unshare
 
-# echo "configuring new container .."
-# buildah config --created-by "wamli" $newcontainer
-# buildah config --author "christoph.brewing@wamli.dev" --label name=mlimage01 $newcontainer
+scratchmnt=$(buildah mount $newcontainer)
 
-# buildah inspect $newcontainer
+echo -e "Name of new mount: $scratchmnt"
 
-# echo -e "\nvoilà, your new container:"
+echo " .. available"
 
-# buildah unmount $newcontainer
-# buildah commit $newcontainer wamli-ml-01
-# buildah images
+echo -e "\t$scratchmnt"
+echo
+echo "copying file into container .."
+buildah copy $newcontainer $FILE_FOR_CONTAINER /
+buildah commit $newcontainer newimage
 
-echo "pushing to local registry .."
+echo "configuring new container .."
+buildah config --created-by "wamli" $newcontainer
+buildah config --author "christoph.brewing@wamli.dev" --label name=mlimage01 $newcontainer
 
-echo -e "\ttagging .."
-buildah tag localhost/wamli-ml-01:latest localhost:5000/wamli-ml-01:latest
+buildah inspect $newcontainer
 
-echo -e "\npushing .."
-buildah push --tls-verify=false localhost:5000/wamli-ml-01:latest
+echo -e "\nvoilà, your new container:"
 
-echo -e "\nverifying .."
-curl -X GET http://localhost:5000/v2/_catalog
+buildah unmount $newcontainer
+buildah commit $newcontainer wamli-ml-01
+buildah images
+
+
+
+# echo "pushing to local registry .."
+
+# echo -e "\ttagging .."
+# buildah tag localhost/wamli-ml-01:latest localhost:5000/wamli-ml-01:latest
+
+# echo -e "\npushing .."
+# buildah push --tls-verify=false localhost:5000/wamli-ml-01:latest
+
+# echo -e "\nverifying .."
+# curl -X GET http://localhost:5000/v2/_catalog

@@ -1,5 +1,5 @@
 use tar::Archive;
-use std::fs::read;
+// use std::fs::read;
 use std::io::Cursor;
 use std::io::prelude::*;
 use flate2::read::GzDecoder;
@@ -7,7 +7,7 @@ use oci_distribution::{
     client::ClientConfig, secrets::RegistryAuth, Client, Reference
 };
 
-pub const IMAGE_REFERENCE: &str = "localhost:5000/wamli-ml-01:latest";
+pub const IMAGE_REFERENCE: &str = "localhost:5000/wamli-mobilenet:latest";
 
 // This is not set explicitly in the build script.
 // It seems to be derviced by the server.
@@ -20,18 +20,46 @@ pub async fn uncompress_image_layer(data: Vec<u8>) -> Vec<u8> {
     return decompressed_data;
 }
 
-pub async fn untar_archive(data: Vec<u8>) {
+pub async fn untar_archive_and_extract(data: Vec<u8>, file_path: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+// pub async fn untar_archive_and_extract(data: Vec<u8>, file_path: &str) {
     let mut archive = Archive::new(Cursor::new(data));
-    let entries = archive.entries().unwrap(); // Unwrap the Result<Entries, Error>
+    
+    // for file in archive.entries().unwrap() {
+    //     // Make sure there wasn't an I/O error
+    //     let mut file = file.unwrap();
 
-    for entry in entries {
-        let mut file = entry.unwrap(); // Unwrap the Result<Entry, Error>
+    //     // Inspect metadata about the file
+    //     println!("Found file {:?} of size {}", file.header().path().unwrap(), file.header().size().unwrap());
 
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        println!("File contents: {}", contents);
-        break;
-    }
+    //     // files implement the Read trait
+    //     let mut s = String::new();
+    //     file.read_to_string(&mut s).unwrap();
+    //     println!("{}", s);
+    // }
+
+
+    // let entries = archive.entries().unwrap(); 
+    // for entry in entries {
+    //     let mut file = entry.unwrap(); 
+    //     let mut contents = String::new();
+    //     file.read_to_string(&mut contents).unwrap();
+    //     println!("My file content: {}", contents);
+    //     break;
+    // }
+
+
+
+    let mut file_entry = archive
+        .entries()?
+        .find(|entry|  entry.as_ref().unwrap().path().unwrap().to_str() == Some(file_path))
+        .ok_or_else(|| format!("File {} not found in the tar archive", file_path))?;
+
+    let mut entry = file_entry?;
+
+    let mut content = Vec::new();
+    entry.read_to_end(&mut content)?;
+    
+    Ok(content)
 }
 
 pub async fn read_first_image_layer(image_ref: &str, content_type: &str) -> Vec<u8> {
@@ -53,6 +81,8 @@ pub async fn read_first_image_layer(image_ref: &str, content_type: &str) -> Vec<
         .await
         .unwrap();
 
+    println!("This image has {} layer(s)", &image_data.layers.len());
+
     // The example image is supposed to have one layer.
     // The first, or only, layer is supposed to contain
     // a text file, e.g. content.txt
@@ -69,11 +99,27 @@ async fn main() {
 
     let first_layer = read_first_image_layer(&IMAGE_REFERENCE, &MEDIA_TYPE).await;
 
-    // Text in text files is supposed to be UTF-8 compliant
-    let text_representation = String::from_utf8_lossy(&first_layer);
+    let uncompressed = uncompress_image_layer(first_layer).await;
 
-    println!("Bytes of first layer's file:\n{first_layer:?}\n");
-    println!("Text  of first layer's file:\n{text_representation:?}\n");
+    println!("Uncompressed layer size: {} [bytes]\n", uncompressed.len());
+
+    let maybe_file1 = untar_archive_and_extract(uncompressed.clone(), "mobilenetv2-7.json").await;
+    let file2 = untar_archive_and_extract(uncompressed, "mobilenetv2-7.onnx").await;
+
+    let file1 = maybe_file1.expect("file2 could NOT be extracted");
+    let text = String::from_utf8_lossy(&file1);
+
+    println!("Content of metadata:\n{}", text);
+    println!("Size of Metadata: {:?}", file1.len());
+
+    // println!("Content of metadata:\n{:?}", file2);
+    println!("\nSize of AI model: {:?} Byte - the content is a binary and not shown here for clarity", file2.expect("file2 could NOT be extracted").len());
+
+    // // Text in text files is supposed to be UTF-8 compliant
+    // let text_representation = String::from_utf8_lossy(&first_layer);
+
+    // println!("Bytes of first layer's file:\n{first_layer:?}\n");
+    // println!("Text  of first layer's file:\n{text_representation:?}\n");
 }
 
 #[cfg(test)]
