@@ -1,11 +1,16 @@
+use model_loader::ModelLoader;
 use tar::Archive;
+// use std::fs::File;
 // use std::fs::read;
 use std::io::Cursor;
 use std::io::prelude::*;
 use flate2::read::GzDecoder;
+// use std::io::{BufWriter};
 use oci_distribution::{
     client::ClientConfig, secrets::RegistryAuth, Client, Reference
 };
+
+mod model_loader;
 
 pub const IMAGE_REFERENCE: &str = "localhost:5000/wamli-mobilenet:latest";
 
@@ -13,7 +18,7 @@ pub const IMAGE_REFERENCE: &str = "localhost:5000/wamli-mobilenet:latest";
 // It seems to be derviced by the server.
 pub const MEDIA_TYPE: &str = "application/vnd.oci.image.layer.v1.tar+gzip";
 
-pub async fn uncompress_image_layer(data: Vec<u8>) -> Vec<u8> {
+pub async fn uncompress_layer(data: Vec<u8>) -> Vec<u8> {
     let mut decompressed_data = Vec::new();
     let mut gz_decoder = GzDecoder::new(&data[..]);
     gz_decoder.read_to_end(&mut decompressed_data).unwrap();
@@ -47,15 +52,12 @@ pub async fn untar_archive_and_extract(data: Vec<u8>, file_path: &str) -> Result
     //     break;
     // }
 
-
-
-    let mut file_entry = archive
+    let file_entry = archive
         .entries()?
         .find(|entry|  entry.as_ref().unwrap().path().unwrap().to_str() == Some(file_path))
         .ok_or_else(|| format!("File {} not found in the tar archive", file_path))?;
 
     let mut entry = file_entry?;
-
     let mut content = Vec::new();
     entry.read_to_end(&mut content)?;
     
@@ -99,27 +101,27 @@ async fn main() {
 
     let first_layer = read_first_image_layer(&IMAGE_REFERENCE, &MEDIA_TYPE).await;
 
-    let uncompressed = uncompress_image_layer(first_layer).await;
+    let uncompressed_layer = uncompress_layer(first_layer).await;
 
-    println!("Uncompressed layer size: {} [bytes]\n", uncompressed.len());
+    println!("Uncompressed layer size: {} [bytes]\n", uncompressed_layer.len());
 
-    let maybe_file1 = untar_archive_and_extract(uncompressed.clone(), "mobilenetv2-7.json").await;
-    let file2 = untar_archive_and_extract(uncompressed, "mobilenetv2-7.onnx").await;
+    let model_data = ModelLoader::get_model_and_metadata(uncompressed_layer).await.expect("SOMETHING WRONG - REPLACE ME!");
 
-    let file1 = maybe_file1.expect("file2 could NOT be extracted");
-    let text = String::from_utf8_lossy(&file1);
+    let model_configuration = ModelLoader::deserialize_metadata(&model_data.metadata).await.expect("SOMETHING WRONG - REPLACE ME!");
 
-    println!("Content of metadata:\n{}", text);
-    println!("Size of Metadata: {:?}", file1.len());
+    println!("model configuration: {:?}", model_configuration);
 
-    // println!("Content of metadata:\n{:?}", file2);
-    println!("\nSize of AI model: {:?} Byte - the content is a binary and not shown here for clarity", file2.expect("file2 could NOT be extracted").len());
+    // let maybe_file1 = untar_archive_and_extract(uncompressed.clone(), "mobilenetv2-7.json").await;
+    // let file2 = untar_archive_and_extract(uncompressed, "mobilenetv2-7.onnx").await;
 
-    // // Text in text files is supposed to be UTF-8 compliant
-    // let text_representation = String::from_utf8_lossy(&first_layer);
+    // let file1 = maybe_file1.expect("file2 could NOT be extracted");
+    // let text = String::from_utf8_lossy(&file1);
 
-    // println!("Bytes of first layer's file:\n{first_layer:?}\n");
-    // println!("Text  of first layer's file:\n{text_representation:?}\n");
+    // println!("Content of metadata:\n{}", text);
+    // println!("Size of Metadata: {:?}", file1.len());
+
+    // // println!("Content of metadata:\n{:?}", file2);
+    // println!("\nSize of AI model: {:?} Byte - the content is a binary and not shown here for clarity", file2.expect("file2 could NOT be extracted").len());
 }
 
 #[cfg(test)]
