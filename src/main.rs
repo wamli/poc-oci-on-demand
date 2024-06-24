@@ -3,6 +3,8 @@ mod data_loader;
 use data_loader as dl;
 use dl::DataLoaderResult;
 
+use dl::ModelMetadata;
+
 pub const IMAGE_REFERENCE: &str = "localhost:5000/wamli-mobilenet:latest";
 
 // This is not set explicitly in the build script.
@@ -54,36 +56,22 @@ pub const MEDIA_TYPE: &str = "application/vnd.oci.image.layer.v1.tar+gzip";
 async fn main() -> DataLoaderResult<()> {
     println!("Ramping up ..");
 
-    let oci_image = dl::oci_image_loader::pull_image(&IMAGE_REFERENCE, &MEDIA_TYPE).await?;
+    // let oci_image = dl::oci_image_loader::pull_image(&IMAGE_REFERENCE, &MEDIA_TYPE).await?;
+    // let first_layer = dl::oci_image_loader::read_first_layer(oci_image).await?;
+    // let uncompressed_layer = dl::oci_image_loader::uncompress_layer(first_layer).await?;
+    // println!("Uncompressed layer size: {} [bytes]\n", uncompressed_layer.len());
 
-    let first_layer = dl::oci_image_loader::read_first_layer(oci_image).await?;
+    // // let mut tar_archive = Archive::new(Cursor::new(uncompressed_layer));
+    // // let metadata = dl::model_loader::untar_metadata(&mut tar_archive).await?;
+    // // let _model_data = dl::model_loader::untar_model(&mut tar_archive).await?;
 
-    let uncompressed_layer = dl::oci_image_loader::uncompress_layer(first_layer).await?;
+    // let model_data = dl::model_loader::untar_model_and_metadata(uncompressed_layer).await.expect("SOMETHING WRONG - REPLACE ME!");
+    
+    let model_data = dl::pull_model_and_metadata(&IMAGE_REFERENCE, &MEDIA_TYPE).await?;
 
-    println!("Uncompressed layer size: {} [bytes]\n", uncompressed_layer.len());
-
-
-    // let mut tar_archive = Archive::new(Cursor::new(uncompressed_layer));
-    // let metadata = dl::model_loader::untar_metadata(&mut tar_archive).await?;
-    // let _model_data = dl::model_loader::untar_model(&mut tar_archive).await?;
-
-    let model_data = dl::model_loader::get_model_and_metadata(uncompressed_layer).await.expect("SOMETHING WRONG - REPLACE ME!");
-
-    let model_metadata = dl::model_loader::ModelMetadata::from_json(&model_data.metadata).await.expect("SOMETHING WRONG - REPLACE ME!");
-
+    let model_metadata = dl::ModelMetadata::from_json(&model_data.metadata).await.expect("SOMETHING WRONG - REPLACE ME!");
+    
     println!("model configuration: {:?}", model_metadata);
-
-    // let maybe_file1 = untar_archive_and_extract(uncompressed.clone(), "mobilenetv2-7.json").await;
-    // let file2 = untar_archive_and_extract(uncompressed, "mobilenetv2-7.onnx").await;
-
-    // let file1 = maybe_file1.expect("file2 could NOT be extracted");
-    // let text = String::from_utf8_lossy(&file1);
-
-    // println!("Content of metadata:\n{}", text);
-    // println!("Size of Metadata: {:?}", file1.len());
-
-    // // println!("Content of metadata:\n{:?}", file2);
-    // println!("\nSize of AI model: {:?} Byte - the content is a binary and not shown here for clarity", file2.expect("file2 could NOT be extracted").len());
 
     Ok(())
 }

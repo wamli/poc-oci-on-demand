@@ -109,7 +109,7 @@ pub struct ModelData {
 // }
 
 /// get model and metadata
-pub async fn get_model_and_metadata(
+pub async fn untar_model_and_metadata(
    data: Vec<u8>
 ) -> DataLoaderResult<ModelData> {
    let mut tar_archive = Archive::new(Cursor::new(data));
