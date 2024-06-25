@@ -1,12 +1,15 @@
-use std::io::Read;
-use log::{debug, info, warn, error};
+use std::{io::Read};
+use log::error;
 
 mod model_loader;
 mod oci_image_loader;
 
-use model_loader::ModelData;
+use crate::data_loader::model_loader::ModelMetadata;
 
-pub use model_loader::ModelMetadata;
+pub struct ModelData {
+    pub model: Vec<u8>,
+    pub metadata: model_loader::ModelMetadata,
+ }
 
 pub async fn pull_model_and_metadata(
     image_ref: &str,
@@ -20,9 +23,16 @@ pub async fn pull_model_and_metadata(
 
     println!("Uncompressed layer size: {} [bytes]\n", uncompressed_layer.len());
 
-    let model_data = model_loader::untar_model_and_metadata(uncompressed_layer).await?;
+    let (model, meta_rawdata) = model_loader::untar_model_and_metadata(uncompressed_layer).await?;
 
-    Ok(model_data)
+    let metadata = ModelMetadata::from_rawdata(&meta_rawdata).await?;
+
+    Ok(
+        ModelData { 
+            model: model, 
+            metadata: metadata
+        }
+    )
 }
 
 /// Data Loader Result

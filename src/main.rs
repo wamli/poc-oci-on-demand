@@ -3,8 +3,6 @@ mod data_loader;
 use data_loader as dl;
 use dl::DataLoaderResult;
 
-use dl::ModelMetadata;
-
 pub const IMAGE_REFERENCE: &str = "localhost:5000/wamli-mobilenet:latest";
 
 // This is not set explicitly in the build script.
@@ -68,10 +66,8 @@ async fn main() -> DataLoaderResult<()> {
     // let model_data = dl::model_loader::untar_model_and_metadata(uncompressed_layer).await.expect("SOMETHING WRONG - REPLACE ME!");
     
     let model_data = dl::pull_model_and_metadata(&IMAGE_REFERENCE, &MEDIA_TYPE).await?;
-
-    let model_metadata = dl::ModelMetadata::from_json(&model_data.metadata).await.expect("SOMETHING WRONG - REPLACE ME!");
     
-    println!("model configuration: {:?}", model_metadata);
+    println!("model configuration: {:?}", model_data.metadata);
 
     Ok(())
 }

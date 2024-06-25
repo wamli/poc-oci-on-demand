@@ -33,15 +33,10 @@ pub struct ModelMetadata {
 
 impl ModelMetadata {
    /// load metadata from json
-   pub async fn from_json(data: &[u8]) -> Result<Self, DataLoaderError> {
+   pub async fn from_rawdata(data: &[u8]) -> Result<Self, DataLoaderError> {
       serde_json::from_slice(data)
          .map_err(|e| DataLoaderError::ModelLoaderJsonError(format!("invalid json: {}", e)))
    }
-}
-
-pub struct ModelData {
-   pub model: Vec<u8>,
-   pub metadata: Vec<u8>,
 }
 
 // pub async fn untar_metadata(
@@ -111,7 +106,7 @@ pub struct ModelData {
 /// get model and metadata
 pub async fn untar_model_and_metadata(
    data: Vec<u8>
-) -> DataLoaderResult<ModelData> {
+) -> DataLoaderResult<(Vec<u8>, Vec<u8>)> {
    let mut tar_archive = Archive::new(Cursor::new(data));
 
    let mut tar_entries = tar_archive.entries()
@@ -157,5 +152,5 @@ pub async fn untar_model_and_metadata(
 
    let mut model:Vec<u8> = Vec::new();
    model_file.read_to_end(&mut model).map_err(|e| DataLoaderError::ModelLoaderTarError(format!("{}", e)))?;
-   Ok(ModelData { model, metadata })
+   Ok((model, metadata))
 }
