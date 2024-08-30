@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# This script is supposed to create an OCI container based on buildah.
-# It expects one argument which shall be a file to be put into the container.
+# This script is supposed to 
+# (1) tag a buildah image,
+# (2) push it to a local registry,
+# (3) save the image as a file to disk
 
 EXEC_PATH=`dirname "$0"`
 EXEC_PATH=`( cd "$EXEC_PATH" && pwd )`
@@ -25,3 +27,9 @@ buildah push --tls-verify=false localhost:5000/$NEW_TAG
 
 echo -e "\nverifying .."
 curl -X GET http://localhost:5000/v2/_catalog | jq
+
+echo -e "\npull from localhost"
+docker pull localhost:5000/$NEW_TAG
+
+echo -e "\nsaving to disk"
+docker save -o $IMAGE_TO_TAG.tar localhost:5000/$NEW_TAG
