@@ -8,14 +8,22 @@ EXEC_PATH=`( cd "$EXEC_PATH" && pwd )`
 echo -e "\tThis script executes from $EXEC_PATH"
 
 if [ "$#" -lt 1 ]; then
-    echo "Error: No argument provided. Please provide a file path"
+    echo -e "Error: No argument provided. Please provide" 
+    echo -e "\t(1) the directory with content for the image and"
+    echo -e "\t(2) the name of the container to create"
     exit 1
 fi
 
+if [ "$#" -lt 2 ]; then
+    echo -e "Error: Please provide" 
+    echo -e "\t(1) the directory with content for the image and"
+    echo -e "\t(2) the name of the container to create"
+    exit 1
+fi
 
 FILE_FOR_CONTAINER="$1"
 
-if [ -f "$FILE_FOR_CONTAINER" ]; then
+if [ -d "$FILE_FOR_CONTAINER" ]; then
     echo "The provided file path is valid: $FILE_FOR_CONTAINER"
 else
     echo "Error: The provided file path is not valid or the file does not exist: $FILE_FOR_CONTAINER"
@@ -50,7 +58,7 @@ buildah unshare -- \
         echo 'Unmounting container filesystem...'
         buildah unmount '$newcontainer'
 
-        buildah commit '$newcontainer' wamli-ml-02
+        buildah commit '$newcontainer' $2
     "
 
 echo "List of available images:"
